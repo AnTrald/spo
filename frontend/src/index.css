@@ -1,6 +1,34 @@
 @import "tailwindcss";
 
 :root {
-    --primary: #2c3e50;
-    --secondary: #000;
+    /* Основные цвета */
+    --primary: #2a9d8f;
+    --primary-dark: #1d7870;
+    --primary-light: #e8f4f3;
+    --primary-extra-light: #f6fbfa;
+
+    --secondary: #6377fd;
+    --secondary-dark: #4a5bd1;
+    --secondary-light: #e8ebff;
+
+    /* Нейтральные цвета для light темы */
+    --bg-light: #ffffff;
+    --surface-light: #f8f9fa;
+    --text-light: #2d3748;
+    --text-secondary-light: #4a5568;
+
+    /* Нейтральные цвета для dark темы */
+    --bg-dark: #1a202c;
+    --surface-dark: #2d3748;
+    --text-dark: #f7fafc;
+    --text-secondary-dark: #e2e8f0;
+
+    /* Дополнительные цвета */
+    --success: #10b981;
+    --error: #ef4444;
+    --warning: #f59e0b;
+
+    /* Дополнительные градиенты */
+    --primary-gradient: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    --secondary-gradient: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
 }
