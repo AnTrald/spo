@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ReceiptItems from './ReceiptItems';
 
 export default function AuthenticatedDashboard({ userData, onLogout }) {
     const [showScanner, setShowScanner] = useState(false);
@@ -7,6 +8,8 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [isSmsRequested, setIsSmsRequested] = useState(false);
+    const [scanResult, setScanResult] = useState(null);
+    const [showReceiptItems, setShowReceiptItems] = useState(false);
 
     const handleFileChange = (e) => {
         setFile(e.target.files[0]);
@@ -143,6 +146,7 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
 
             const result = await scanResponse.json();
             console.log('Результат сканирования:', result);
+            setScanResult(result);
 
         } catch (err) {
             setError(err.message);
@@ -150,6 +154,18 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
             setIsLoading(false);
         }
     };
+
+    if (showReceiptItems) {
+        return (
+            <ReceiptItems
+                ticket={scanResult?.ticket}
+                onBack={() => {
+                    setShowReceiptItems(false)
+                    setShowScanner(null);
+                }}
+            />
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[var(--bg-light)] dark:bg-[var(--bg-dark)] p-4">
@@ -169,7 +185,10 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
                                     isLoading ? 'opacity-70 cursor-not-allowed' : ''
                                 }`}
                             >
-                                {isLoading ? 'Отправка SMS...' : 'Начать сканирование'}
+                                {isLoading
+                                    ? (isSmsRequested ? 'Отправка SMS...' : 'Получение refresh-токена')
+                                    : 'Начать сканирование'
+                                }
                             </button>
 
                             <button
@@ -234,8 +253,15 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
                                     ) : 'Сканировать QR-код'}
                                 </button>
                             </form>
-
-                            {error && (
+                            {scanResult && (
+                                <button
+                                    onClick={() => setShowReceiptItems(true)}
+                                    className="w-full mt-4 bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg transition duration-200 shadow-md"
+                                >
+                                    Перейти к распределению
+                                </button>
+                            )}
+                            {error != null && (
                                 <div className="mt-4 p-3 bg-red-50 dark:bg-red-900 rounded-lg">
                                     <p className="text-red-600 dark:text-red-200 text-center">{error}</p>
                                 </div>
