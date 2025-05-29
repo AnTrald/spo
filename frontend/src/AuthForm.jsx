@@ -35,6 +35,7 @@ export default function AuthForm() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setMessage('');
         const endpoint = isLogin ? '/api/login' : '/api/register';
 
         let requestData;
@@ -67,7 +68,7 @@ export default function AuthForm() {
             setIsAuthenticated(true);
             setUserData({
                 username: data.username || formData.username,
-                phone: formData.phone ? `+7${formData.phone.replace(/\D/g, '')}` : null
+                phone: data.phone || (formData.phone ? `+7${formData.phone.replace(/\D/g, '')}` : null)
             });
         } catch (err) {
             setMessage(err.message);
@@ -209,7 +210,10 @@ export default function AuthForm() {
                     </form>
                     <div className="mt-6 text-center">
                         <button
-                            onClick={() => setIsLogin(!isLogin)}
+                            onClick={() => {
+                                setIsLogin(!isLogin);
+                                setMessage('');
+                            }}
                             className="text-[var(--secondary)] dark:text-[var(--secondary-light)] hover:text-[var(--secondary-dark)] dark:hover:text-[var(--secondary)] font-medium transition duration-200"
                         >
                             {isLogin ? 'Создать новый аккаунт' : 'Уже есть аккаунт? Войти'}

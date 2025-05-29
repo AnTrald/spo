@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form
+from nalog_python import NalogRuPython
 from fastapi.middleware.cors import CORSMiddleware
 from pyzbar.pyzbar import decode
 from PIL import Image
@@ -9,7 +10,6 @@ import re
 
 app = FastAPI()
 
-# Настройка CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -36,13 +36,29 @@ class UserLogin(BaseModel):
     login: str  # Может быть username или phone
     password: str
 
-class QRData(BaseModel):
-    qr_string: str
+
+class SmsRequest(BaseModel):
     phone: str
 
-class SMSCode(BaseModel):
+class SmsVerify(BaseModel):
+    phone: str
     code: str
-    session_id: str
+
+class RefreshTokenRequest(BaseModel):
+    username: str
+    refresh_token: str
+
+class VerifySmsRequest(BaseModel):
+    username: str
+    phone: str
+    code: str
+
+class CheckSessionRequest(BaseModel):
+    username: str
+
+def get_nalog_client():
+    return NalogRuPython()
+
 
 def validate_phone(phone: str) -> bool:
     pattern = r'^\+?\d{10,15}$'
@@ -75,7 +91,6 @@ def validate_fiscal_qr(qr_string: str) -> bool:
 
 @app.post("/api/register")
 async def register(user: UserRegister):
-    # Валидация номера телефона
     if not validate_phone(user.phone):
         raise HTTPException(status_code=400, detail="Invalid phone number format")
 
@@ -83,7 +98,6 @@ async def register(user: UserRegister):
     cur = conn.cursor()
 
     try:
-        # Проверка существования username или phone
         cur.execute("SELECT * FROM users WHERE username = %s OR phone = %s",
                    (user.username, f'+7{user.phone}'))
         if cur.fetchone():
@@ -111,7 +125,6 @@ async def login(user: UserLogin):
     cur = conn.cursor()
 
     try:
-        # Ищем пользователя по username или phone
         cur.execute("SELECT * FROM users WHERE username = %s OR phone = %s",
                    (user.login, user.login))
         db_user = cur.fetchone()
@@ -122,7 +135,11 @@ async def login(user: UserLogin):
         if not bcrypt.checkpw(user.password.encode('utf-8'), db_user[2].encode('utf-8')):
             raise HTTPException(status_code=400, detail="Invalid credentials")
 
-        return {"success": True, "username": db_user[1]}
+        return {
+            "success": True,
+            "username": db_user[1],
+            "phone": db_user[4]
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -131,8 +148,106 @@ async def login(user: UserLogin):
         conn.close()
 
 
+@app.post("/api/request-sms")
+async def request_sms(
+        sms_request: SmsRequest,
+        client: NalogRuPython = Depends(get_nalog_client)
+):
+    try:
+        if not validate_phone(sms_request.phone):
+            raise HTTPException(status_code=400, detail="Неверный формат номера телефона")
+
+        success = await client.request_sms(sms_request.phone)
+        if not success:
+            raise HTTPException(status_code=400, detail="Не удалось отправить SMS")
+
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/verify-sms")
+async def verify_sms(
+        sms_verify: SmsVerify,
+        client: NalogRuPython = Depends(get_nalog_client)
+):
+    try:
+        tokens = await client.verify_sms(sms_verify.phone, sms_verify.code)
+        return {
+            "success": True,
+            "session_id": tokens['session_id'],
+            "refresh_token": tokens['refresh_token']
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/check-session")
+async def check_session(request: CheckSessionRequest):
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT refresh_token FROM user_sessions WHERE username = %s", (request.username,))
+        result = cur.fetchone()
+        return {"has_session": bool(result), "refresh_token": result[0] if result else None}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.post("/api/refresh-session")
+async def refresh_session(
+        request: RefreshTokenRequest,
+        client: NalogRuPython = Depends(get_nalog_client)):
+    try:
+        tokens = await client.refresh_session(request.refresh_token)
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE user_sessions SET refresh_token = %s WHERE username = %s",
+            (tokens['refresh_token'], request.username)
+        )
+        conn.commit()
+
+        return tokens
+    except HTTPException as e:
+        if e.status_code == 400:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute("DELETE FROM user_sessions WHERE username = %s", (request.username,))
+            conn.commit()
+        raise e
+
+
+@app.post("/api/save-session")
+async def save_session(
+        request: VerifySmsRequest,
+        client: NalogRuPython = Depends(get_nalog_client)):
+    try:
+        tokens = await client.verify_sms(request.phone, request.code)
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO user_sessions (username, refresh_token) VALUES (%s, %s) "
+            "ON CONFLICT (username) DO UPDATE SET refresh_token = EXCLUDED.refresh_token",
+            (request.username, tokens['refresh_token'])
+        )
+        conn.commit()
+
+        return tokens
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/scan-qr")
-async def scan_qr(file: UploadFile = File(...)):
+async def scan_qr(
+        file: UploadFile = File(...),
+        session_id: str = Form(...),
+        client: NalogRuPython = Depends(get_nalog_client)
+):
     try:
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=422, detail="Файл должен быть изображением")
@@ -142,14 +257,15 @@ async def scan_qr(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="QR-код не найден на изображении")
 
         qr_data = str(decoded_objects[0][0])[2:-1:]
-        #t=20250526T1641&s=8226.86&fn=7384440800112922&i=36325&fp=4269430933&n=1
+
         if not validate_fiscal_qr(qr_data):
             raise HTTPException(status_code=400, detail="QR-код не соответствует фискальному формату")
 
-        return {
-            "qr_data": qr_data
-        }
+        ticket_data = await client.get_ticket(qr_data, session_id)
+        return ticket_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка обработки QR-кода: {str(e)}")
 

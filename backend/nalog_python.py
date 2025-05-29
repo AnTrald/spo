@@ -1,9 +1,11 @@
 import requests
 from fastapi import HTTPException
-from datetime import datetime, timedelta
+from typing import Optional, Dict
 
 
 class NalogRuPython:
+    _instance = None
+
     HOST = 'irkkt-mobile.nalog.ru:8888'
     DEVICE_OS = 'iOS'
     CLIENT_VERSION = '2.9.0'
@@ -14,17 +16,16 @@ class NalogRuPython:
     CLIENT_SECRET = 'IyvrAbKt9h/8p6a7QPh8gpkXYQ4='
     OS = 'Android'
 
-    def __init__(self):
-        self.__session_id = None
-        self.__refresh_token = None
-        self.__phone = None
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(NalogRuPython, cls).__new__(cls)
+        return cls._instance
 
     async def request_sms(self, phone: str) -> bool:
         """Запрос SMS-кода"""
-        self.__phone = phone
         url = f'https://{self.HOST}/v2/auth/phone/request'
         payload = {
-            'phone': self.__phone,
+            'phone': phone,
             'client_secret': self.CLIENT_SECRET,
             'os': self.OS
         }
@@ -35,11 +36,11 @@ class NalogRuPython:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def verify_sms(self, code: str) -> str:
-        """Подтверждение SMS-кода"""
+    async def verify_sms(self, phone: str, code: str) -> Dict[str, str]:
+        """Подтверждение SMS-кода и получение токенов"""
         url = f'https://{self.HOST}/v2/auth/phone/verify'
         payload = {
-            'phone': self.__phone,
+            'phone': phone,
             'client_secret': self.CLIENT_SECRET,
             'code': code,
             "os": self.OS
@@ -48,21 +49,39 @@ class NalogRuPython:
         try:
             resp = requests.post(url, json=payload, headers=self._get_headers())
             data = resp.json()
-            self.__session_id = data['sessionId']
-            self.__refresh_token = data['refresh_token']
-            return self.__session_id
+            return {
+                'session_id': data['sessionId'],
+                'refresh_token': data['refresh_token']
+            }
         except Exception as e:
             raise HTTPException(status_code=400, detail="Неверный код подтверждения")
 
-    async def get_ticket(self, qr: str) -> dict:
+    async def refresh_session(self, refresh_token: str) -> dict:
+        url = f'https://{self.HOST}/v2/mobile/users/refresh'
+        payload = {
+            'refresh_token': refresh_token,
+            'client_secret': self.CLIENT_SECRET
+        }
+
+        resp = requests.post(url, json=payload, headers=self._get_headers())
+        if resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Invalid refresh token")
+
+        data = resp.json()
+        return {
+            'session_id': data['sessionId'],
+            'refresh_token': data['refresh_token']
+        }
+
+    async def get_ticket(self, qr: str, session_id: str) -> dict:
         """Получение данных чека"""
-        if not self.__session_id:
+        if not session_id:
             raise HTTPException(status_code=401, detail="Требуется авторизация")
 
-        ticket_id = await self._get_ticket_id(qr)
+        ticket_id = await self._get_ticket_id(qr, session_id)
         url = f'https://{self.HOST}/v2/tickets/{ticket_id}'
         headers = self._get_headers()
-        headers['sessionId'] = self.__session_id
+        headers['sessionId'] = session_id
 
         try:
             resp = requests.get(url, headers=headers)
@@ -70,15 +89,18 @@ class NalogRuPython:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def _get_ticket_id(self, qr: str) -> str:
+    async def _get_ticket_id(self, qr: str, session_id: str) -> str:
         """Получение ID чека"""
         url = f'https://{self.HOST}/v2/ticket'
         payload = {'qr': qr}
         headers = self._get_headers()
-        headers['sessionId'] = self.__session_id
+        headers['sessionId'] = session_id
 
-        resp = requests.post(url, json=payload, headers=headers)
-        return resp.json()["id"]
+        try:
+            resp = requests.post(url, json=payload, headers=headers)
+            return resp.json()["id"]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     def _get_headers(self) -> dict:
         """Базовые заголовки запросов"""
