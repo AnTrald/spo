@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import ReceiptItems from './ReceiptItems';
+import ReceiptItems from './components/ReceiptItems.jsx';
 
 export default function AuthenticatedDashboard({ userData, onLogout }) {
     const [showScanner, setShowScanner] = useState(false);
@@ -10,6 +10,7 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
     const [isSmsRequested, setIsSmsRequested] = useState(false);
     const [scanResult, setScanResult] = useState(null);
     const [showReceiptItems, setShowReceiptItems] = useState(false);
+
 
     const handleFileChange = (e) => {
         setFile(e.target.files[0]);
@@ -160,8 +161,9 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
             <ReceiptItems
                 ticket={scanResult?.ticket}
                 onBack={() => {
-                    setShowReceiptItems(false)
-                    setShowScanner(null);
+                    setShowReceiptItems(false);
+                    setScanResult(null);
+                    setFile(null);
                 }}
             />
         );
@@ -253,7 +255,7 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
                                     ) : 'Сканировать QR-код'}
                                 </button>
                             </form>
-                            {scanResult && (
+                            {scanResult != null && (
                                 <button
                                     onClick={() => setShowReceiptItems(true)}
                                     className="w-full mt-4 bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg transition duration-200 shadow-md"
@@ -261,17 +263,12 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
                                     Перейти к распределению
                                 </button>
                             )}
-                            {error != null && (
+                            {error != '' && (
                                 <div className="mt-4 p-3 bg-red-50 dark:bg-red-900 rounded-lg">
                                     <p className="text-red-600 dark:text-red-200 text-center">{error}</p>
                                 </div>
                             )}
 
-                            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg border border-blue-200 dark:border-blue-800">
-                                <p className="text-blue-700 dark:text-blue-200 text-center">
-                                    Результат сканирования будет выведен в консоль браузера
-                                </p>
-                            </div>
 
                             <button
                                 onClick={() => {
@@ -279,6 +276,7 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
                                     setSmsCode('');
                                     setFile(null);
                                     setIsSmsRequested(false);
+                                    setScanResult(null);
                                 }}
                                 className="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition duration-200 shadow-md"
                             >
