@@ -22,7 +22,6 @@ class NalogRuPython:
         return cls._instance
 
     async def request_sms(self, phone: str) -> bool:
-        """Запрос SMS-кода"""
         url = f'https://{self.HOST}/v2/auth/phone/request'
         payload = {
             'phone': phone,
@@ -37,7 +36,6 @@ class NalogRuPython:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def verify_sms(self, phone: str, code: str) -> Dict[str, str]:
-        """Подтверждение SMS-кода и получение токенов"""
         url = f'https://{self.HOST}/v2/auth/phone/verify'
         payload = {
             'phone': phone,
@@ -74,7 +72,6 @@ class NalogRuPython:
         }
 
     async def get_ticket(self, qr: str, session_id: str) -> dict:
-        """Получение данных чека"""
         if not session_id:
             raise HTTPException(status_code=401, detail="Требуется авторизация")
 
@@ -90,7 +87,6 @@ class NalogRuPython:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def _get_ticket_id(self, qr: str, session_id: str) -> str:
-        """Получение ID чека"""
         url = f'https://{self.HOST}/v2/ticket'
         payload = {'qr': qr}
         headers = self._get_headers()
@@ -103,7 +99,6 @@ class NalogRuPython:
             raise HTTPException(status_code=500, detail=str(e))
 
     def _get_headers(self) -> dict:
-        """Базовые заголовки запросов"""
         return {
             'Host': self.HOST,
             'Accept': self.ACCEPT,

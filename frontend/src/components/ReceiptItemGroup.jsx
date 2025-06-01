@@ -6,36 +6,38 @@ import CheckIcon from "../icons/CheckIcon.jsx";
 
 const mergeSameNameItems = (items) => {
     const merged = {};
-    items.forEach(item => {
-        // Добавляем уникальный id для каждого товара
-        const uniqueId = item.id || Math.random().toString(36).substring(2, 9);
-
-        if (item.quantity % 1 !== 0) {
-            const uniqueKey = `${item.name}_${uniqueId}`;
-            merged[uniqueKey] = {
-                ...item,
-                id: uniqueId, // Сохраняем id
-                displayName: item.name,
-                isExpanded: false
-            };
-        } else {
-            if (!merged[item.name]) {
-                merged[item.name] = {
+    const prev = ''
+    let counter = 0
+        items.forEach(item => {
+            if (item.quantity % 1 !== 0) {
+                if (prev === item.name) counter++;
+                else counter = 0
+                const uniqueKey = `${item.name}_${counter}`;
+                merged[uniqueKey] = {
                     ...item,
-                    id: uniqueId, // Сохраняем id
-                    displayName: item.name
-                };
+                    id: uniqueKey,
+                    displayName: item.name,
+                    isExpanded: false
+            };
             } else {
-                merged[item.name] = {
-                    ...merged[item.name],
-                    quantity: merged[item.name].quantity + item.quantity,
-                    sum: merged[item.name].sum + item.sum,
-                    originalItems: [...(merged[item.name].originalItems || [merged[item.name]]), item],
-                    displayName: item.name
-                };
+                if (!merged[item.name]) {
+                    merged[item.name] = {
+                        ...item,
+                        id: `${item.name}_${0}`,
+                        displayName: item.name
+                    };
+                } else {
+                    merged[item.name] = {
+                        ...merged[item.name],
+                        quantity: merged[item.name].quantity + item.quantity,
+                        sum: merged[item.name].sum + item.sum,
+                        originalItems: [...(merged[item.name].originalItems || [merged[item.name]]), item],
+                        displayName: item.name
+                    };
+                }
             }
         }
-    });
+        );
     return Object.values(merged);
 };
 
@@ -44,7 +46,7 @@ const splitMergedItems = (mergedItems) => {
         if (item.quantity > 1 && item.quantity % 1 == 0) {
             return Array.from({ length: item.quantity }, (_, i) => ({
                 ...item,
-                id: `${item.id}_${i}`, // Уникальный id для каждого развернутого элемента
+                id: `${item.id}_${i}`,
                 quantity: 1,
                 sum: item.sum / item.quantity,
                 isExpanded: true,
@@ -56,9 +58,8 @@ const splitMergedItems = (mergedItems) => {
     });
 };
 
-export default function ReceiptItemGroup({ name, items }) {
+export default function ReceiptItemGroup({ name, items, selectedItems = [], onSelectedItemsUpdate }) {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [selectedItems, setSelectedItems] = useState([]);
     const [processedItems, setProcessedItems] = useState([]);
     const [canExpand, setCanExpand] = useState(false);
 
@@ -69,20 +70,21 @@ export default function ReceiptItemGroup({ name, items }) {
         setCanExpand(mergedItems.some(item => item.quantity > 1 && item.quantity % 1 === 0));
     }, [items]);
 
-    const allSelected = selectedItems.length === processedItems.length && processedItems.length > 0;
+    const toggleItemSelect = (item, isSelected) => {
+        const newSelected = isSelected
+            ? [...selectedItems, item.id]
+            : selectedItems.filter(id => id !== item.id);
+        onSelectedItemsUpdate(newSelected);
+    };
 
     const toggleSelectAll = (e) => {
         e.stopPropagation();
-        setSelectedItems(allSelected ? [] : [...processedItems]);
+        const allIds = processedItems.map(item => item.id);
+        const newSelected = selectedItems.length === allIds.length ? [] : allIds;
+        onSelectedItemsUpdate(newSelected);
     };
 
-    const toggleItemSelect = (item, isSelected) => {
-        setSelectedItems(prev =>
-            isSelected
-                ? [...prev, item]
-                : prev.filter(i => i.id === item.id) // Сравниваем по id
-        );
-    };
+    const allSelected = selectedItems.length === processedItems.length && processedItems.length > 0;
 
     return (
         <div className="border border-[var(--primary-dark)] dark:border-[var(--secondary-dark)] rounded-lg">
@@ -104,8 +106,8 @@ export default function ReceiptItemGroup({ name, items }) {
                         </div>
                         {canExpand && (
                             <span className="text-[var(--text-secondary-light)] dark:text-[var(--text-secondary-dark)]">
-                {isExpanded ? <ChevronUp/> : <ChevronDown/>}
-              </span>
+                                {isExpanded ? <ChevronUp/> : <ChevronDown/>}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -126,12 +128,12 @@ export default function ReceiptItemGroup({ name, items }) {
                 <div className="border-t border-[var(--primary-dark)] dark:border-[var(--secondary-dark)]">
                     {processedItems.map((item) => (
                         <ReceiptItem
-                            key={item.id} // Используем id как ключ
+                            key={item.id}
                             item={{
                                 ...item,
                                 name: item.displayName || item.name
                             }}
-                            isSelected={selectedItems.some(i => i.id === item.id)} // Проверяем по id
+                            isSelected={selectedItems.includes(item.id)}
                             onSelect={toggleItemSelect}
                         />
                     ))}
