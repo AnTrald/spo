@@ -159,6 +159,7 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
     if (showReceiptItems) {
         return (
             <ReceiptItems
+                username={userData.username}
                 ticket={scanResult?.ticket}
                 onBack={() => {
                     setShowReceiptItems(false);
@@ -192,7 +193,11 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
                                     : 'Начать сканирование'
                                 }
                             </button>
-
+                            <button
+                                className="w-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] dark:bg-[var(--secondary)] dark:hover:bg-[var(--secondary-dark)] text-white py-3 px-4 rounded-lg transition duration-200 shadow-md"
+                            >
+                                Посмотреть историю распределений
+                            </button>
                             <button
                                 onClick={onLogout}
                                 className="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg transition duration-200 shadow-md"

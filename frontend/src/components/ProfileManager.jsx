@@ -82,6 +82,9 @@ export default function ProfileManager({ profiles, activeProfile, onProfileSelec
                             {profile.name}
                             {profile.isDefault && <span className="ml-2 text-xs opacity-70">(по умолчанию)</span>}
                         </span>
+                        <span className="truncate text-sm md:text-base dark:text-[var(--text-dark)]">
+                            {(profile.currentSum/ 100).toFixed(2)}₽
+                        </span>
                         {!profile.isDefault && (
                             <button
                                 onClick={(e) => {
