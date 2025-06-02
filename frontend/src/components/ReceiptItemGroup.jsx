@@ -12,9 +12,11 @@ export default function ReceiptItemGroup({
                                              onSelectedItemsUpdate,
                                              getUsersForItem,
                                              getUsersForGroup,
-                                             groupKey
+                                             groupKey,
+                                             forceCollapsed = false
                                          }) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const actualIsExpanded = forceCollapsed && canExpand ? false : isExpanded;
     const canExpand = items.some(item => item.totalUnits > 1);
 
     const toggleItemSelect = (item, isSelected) => {
@@ -38,7 +40,7 @@ export default function ReceiptItemGroup({
             <div className="flex">
                 <div
                     className={`flex-1 p-4 ${canExpand ? 'cursor-pointer' : ''}`}
-                    onClick={() => canExpand && setIsExpanded(!isExpanded)}
+                    onClick={() => canExpand && setIsExpanded(!actualIsExpanded)}
                 >
                     <div className="flex flex-row justify-between">
                         <div className="flex flex-col justify-between items-left">
@@ -50,7 +52,7 @@ export default function ReceiptItemGroup({
                                     <SelectionIndicator selectedBy={getUsersForGroup(groupKey)}/>
                                 </div>
                             </div>
-                            {!isExpanded && (
+                            {!actualIsExpanded && (
                                 <div className="mt-2 text-[var(--text-secondary-light)] dark:text-[var(--text-secondary-dark)]">
                                     Общая сумма: {(items.reduce((sum, item) => sum + item.sum, 0) / 100).toFixed(2)} ₽
                                 </div>
@@ -58,7 +60,7 @@ export default function ReceiptItemGroup({
                         </div>
                         {canExpand && (
                             <span className="text-[var(--text-secondary-light)] dark:text-[var(--text-secondary-dark)]">
-                                {isExpanded ? <ChevronUp/> : <ChevronDown/>}
+                                {actualIsExpanded ? <ChevronUp/> : <ChevronDown/>}
                             </span>
                         )}
                     </div>
@@ -76,7 +78,7 @@ export default function ReceiptItemGroup({
                 </div>
             </div>
 
-            {isExpanded && canExpand && (
+            {actualIsExpanded && canExpand && (
                 <div className="border-t border-[var(--primary-dark)] dark:border-[var(--secondary-dark)]">
                     {items.map((item) => (
                         <ReceiptItem

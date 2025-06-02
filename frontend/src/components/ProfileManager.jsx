@@ -78,32 +78,42 @@ export default function ProfileManager({ profiles, activeProfile, onProfileSelec
                         }}
                         onClick={() => onProfileSelect(profile.id)}
                     >
-                        <span className="truncate text-sm md:text-base dark:text-[var(--text-dark)]">
-                            {profile.name}
-                            {profile.isDefault && <span className="ml-2 text-xs opacity-70">(по умолчанию)</span>}
-                        </span>
-                        <span className="truncate text-sm md:text-base dark:text-[var(--text-dark)]">
-                            {(profile.currentSum/ 100).toFixed(2)}₽
-                        </span>
-                        {!profile.isDefault && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveClick(profile.id);
-                                }}
-                                className={`text-lg px-2 rounded-full transition-colors ${
-                                    profile.id === activeProfile
-                                        ? 'text-white hover:bg-white/20'
-                                        : 'text-red-500 hover:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-400/20'
-                                }`}
-                                style={{
-                                    minWidth: '28px',
-                                    height: '28px'
-                                }}
-                            >
-                                <CloseIcon className="w-4 h-4"/>
-                            </button>
-                        )}
+                        <div className="flex items-center flex-1 min-w-0">
+                            <span className="truncate text-sm md:text-base dark:text-[var(--text-dark)]">
+                                {profile.name}
+                                {profile.isDefault && <span className="ml-2 text-xs opacity-70">(по умолчанию)</span>}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center ml-2">
+                            <span className={`text-sm md:text-base font-medium ${
+                                profile.id === activeProfile
+                                    ? 'text-white dark:text-white'
+                                    : 'text-[var(--text-light)] dark:text-[var(--text-dark)]'
+                            }`}>
+                                {(profile.currentSum / 100).toFixed(2)}₽
+                            </span>
+
+                            {!profile.isDefault && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveClick(profile.id);
+                                    }}
+                                    className={`ml-2 text-lg px-2 rounded-full transition-colors ${
+                                        profile.id === activeProfile
+                                            ? 'text-white hover:bg-white/20'
+                                            : 'text-red-500 hover:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-400/20'
+                                    }`}
+                                    style={{
+                                        minWidth: '28px',
+                                        height: '28px'
+                                    }}
+                                >
+                                    <CloseIcon className="w-4 h-4"/>
+                                </button>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
