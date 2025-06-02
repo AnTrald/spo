@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pyzbar.pyzbar import decode
 from PIL import Image
 from pydantic import BaseModel
+from typing import List
+import json
 import psycopg2
 import bcrypt
 import re
@@ -55,6 +57,14 @@ class VerifySmsRequest(BaseModel):
 
 class CheckSessionRequest(BaseModel):
     username: str
+
+class ReportCreate(BaseModel):
+    owner_username: str
+    recipient_username: str
+    ticketId: str
+    total_sum: float
+    participants_count: int
+    items: List[dict]
 
 def get_nalog_client():
     return NalogRuPython()
@@ -268,6 +278,140 @@ async def scan_qr(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка обработки QR-кода: {str(e)}")
+
+
+@app.post("/api/save-report")
+async def save_report(report: ReportCreate):
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT * FROM users WHERE username = %s",
+                   (report.owner_username,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=400, detail="User not found")
+
+        cur.execute("SELECT id FROM reports WHERE ticketId = %s",
+                   (report.ticketId,))
+        existing_report = cur.fetchone()
+
+        if existing_report:
+            cur.execute(
+                """UPDATE reports SET
+                   owner_username = %s,
+                   recipient_username = %s,
+                   total_sum = %s,
+                   participants_count = %s,
+                   items = %s,
+                   created_at = CURRENT_TIMESTAMP
+                   WHERE ticketId = %s
+                   RETURNING id""",
+                (
+                    report.owner_username,
+                    report.recipient_username,
+                    report.total_sum,
+                    report.participants_count,
+                    json.dumps(report.items),
+                    report.ticketId
+                )
+            )
+            action = "updated"
+        else:
+            cur.execute(
+                """INSERT INTO reports 
+                (owner_username, recipient_username, ticketId, total_sum, participants_count, items) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id""",
+                (
+                    report.owner_username,
+                    report.recipient_username,
+                    report.ticketId,
+                    report.total_sum,
+                    report.participants_count,
+                    json.dumps(report.items)
+                )
+            )
+            action = "created"
+
+        report_id = cur.fetchone()[0]
+        conn.commit()
+        return {"success": True, "report_id": report_id, "action": action}
+
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.get("/api/reports/by-ticket/{ticketId}")
+async def check_exist_user_report_by_id(ticketId: str):
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT * FROM reports WHERE ticketId = %s ORDER BY created_at DESC",
+            (ticketId,)
+        )
+        report = cur.fetchone()
+        if report:
+            return True
+        return False
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.get("/api/reports/by-user/{username}")
+async def get_user_reports(username: str):
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT * FROM reports WHERE owner_username = %s ORDER BY created_at DESC",
+            (username,)
+        )
+        reports = cur.fetchall()
+        return [
+            {
+                "id": r[0],
+                "owner": r[1],
+                "recipient": r[2],
+                "ticketId": r[3],
+                "total_sum": float(r[4]),
+                "date": r[7].strftime("%Y-%m-%d %H:%M"),
+                "participants_count": r[5]
+            }
+            for r in reports
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.get("/api/reports/by-id/{id}")
+async def get_user_report(id: int):
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT * FROM reports WHERE id = %s ORDER BY created_at DESC",
+            (id,)
+        )
+        report = cur.fetchone()
+        if not report:
+            raise HTTPException(status_code=404, detail="Report not found")
+        return {
+            "data": report[6],
+            "participants_count": report[5]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
 
 if __name__ == "__main__":
     import uvicorn

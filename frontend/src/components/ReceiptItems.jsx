@@ -64,10 +64,11 @@ const splitMergedItems = (mergedItems) => {
     });
 };
 
-export default function ReceiptItems({ ticket, username, onBack }) {
+export default function ReceiptItems({ ticket, ticketId, username, onBack }) {
     const items = ticket?.document?.receipt?.items || [];
     const processedItems = splitMergedItems(mergeSameNameItems(items));
     const [showReport, setShowReport] = useState(false);
+
 
     const groupedProcessedItems = processedItems.reduce((groups, item) => {
         const groupKey = item.originalName || item.name;
@@ -298,6 +299,8 @@ export default function ReceiptItems({ ticket, username, onBack }) {
                     {showReport ? (
                         <ReportPage
                             profiles={profiles}
+                            username={username}
+                            ticketId = {ticketId}
                             groupedProcessedItems={groupedProcessedItems}
                             totalSumAllItems={totalSumAllItems}
                             onBack={() => setShowReport(false)}

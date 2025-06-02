@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import {use, useState} from 'react';
 import SaveToHistory from "../icons/SaveToHistory.jsx";
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExportModal from "./ExportModal.jsx";
 import '../fonts/ArialMT-normal.js'
 
-export default function ReportPage({ profiles, groupedProcessedItems, totalSumAllItems, onBack }) {
+export default function ReportPage({ profiles, username, ticketId, groupedProcessedItems, totalSumAllItems, onBack }) {
     const [activeProfileId, setActiveProfileId] = useState(null);
     const defaultProfile = profiles.find(p => p.isDefault);
     const [showExportModal, setShowExportModal] = useState(false);
+    const [showOverwriteModal, setShowOverwriteModal] = useState(false);
+    const [reportData, setReportData] = useState(null);
     const nonDefaultProfiles = profiles.filter(p => !p.isDefault);
-
     const getItemShare = (itemId) => {
         const sharingProfiles = profiles.filter(p =>
             Object.values(p.selectedItems).flat().includes(itemId)
@@ -35,10 +36,93 @@ export default function ReportPage({ profiles, groupedProcessedItems, totalSumAl
         setActiveProfileId(activeProfileId === profileId ? null : profileId);
     };
 
-    const handleSave = () => {
-
-        alert('Функция сохранения будет реализована позже');
+    const checkDuplicateReport = async (ticketId) => {
+        try {
+            const response = await fetch(`http://localhost:8000/api/reports/by-ticket/${ticketId}`);
+            if (!response.ok) {
+                throw new Error('Ошибка при проверке дубликата');
+            }
+            return await response.json(); // Вернет true/false
+        } catch (error) {
+            console.error('Ошибка проверки:', error);
+            return false;
+        }
     };
+
+    const handleSaveToDatabase = async () => {
+        try {
+            const data = {
+                recipient_username: defaultProfile.name,
+                owner_username: username,
+                ticketId: ticketId,
+                total_sum: totalSumAllItems / 100,
+                participants_count: profiles.length,
+                items: profiles.flatMap(profile =>
+                    Object.entries(profile.selectedItems).flatMap(([groupKey, itemIds]) =>
+                        itemIds.map(itemId => {
+                            const item = Object.values(groupedProcessedItems)
+                                .flat()
+                                .find(i => i.id === itemId);
+                            return {
+                                profile: profile.name,
+                                product: item?.name || 'Unknown',
+                                price: getItemShare(itemId) / 100,
+                                total: profile.currentSum / 100
+                            };
+                        })
+                    )
+                )
+            };
+            console.log(data)
+            setReportData(data);
+
+            // Проверяем дубликат
+            const isDuplicate = await checkDuplicateReport(ticketId);
+
+            if (isDuplicate) {
+                setShowOverwriteModal(true); // Показываем модальное окно подтверждения
+            } else {
+                await saveReport(data); // Сохраняем если нет дубликата
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('Не удалось сохранить отчёт');
+        }
+    };
+
+    const saveReport = async (data) => {
+        try {
+            const response = await fetch('http://localhost:8000/api/save-report', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) throw new Error('Ошибка сохранения');
+            const result = await response.json();
+            if (result.action === "updated") {
+                alert("Отчет успешно обновлен!");
+            } else {
+                alert("Отчет успешно сохранен!");
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('Не удалось сохранить отчёт');
+        }
+    };
+
+    const handleOverwriteConfirm = async () => {
+        setShowOverwriteModal(false);
+        if (reportData) {
+            await saveReport(reportData);
+        }
+    };
+
+    const handleOverwriteCancel = () => {
+        setShowOverwriteModal(false);
+        setReportData(null);
+    };
+
 
     const handleExportCSV = () => {
         let csvContent = "\uFEFF"; // BOM для UTF-8
@@ -312,7 +396,7 @@ export default function ReportPage({ profiles, groupedProcessedItems, totalSumAl
                         Назад к распределению
                     </button>
                     <button
-                        onClick={handleSave}
+                        onClick={handleSaveToDatabase}
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] dark:bg-[var(--secondary)] dark:hover:bg-[var(--secondary-dark)] text-white transition-colors shadow-md"
                     >
                         <SaveToHistory/>
@@ -337,6 +421,28 @@ export default function ReportPage({ profiles, groupedProcessedItems, totalSumAl
                     onClose={() => setShowExportModal(false)}
                     onExport={handleExport}
                 />
+            )}
+            {showOverwriteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full text-[var(--text-light)] dark:text-white">
+                        <h3 className="text-lg  font-bold mb-4">Отчет уже существует</h3>
+                        <p className="mb-4">Отчет с этим QR-кодом уже сохранен. Хотите перезаписать его?</p>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={handleOverwriteCancel}
+                                className="px-4 py-2 rounded-lg bg-gray-500 hover:bg-gray-600 text-white transition-colors"
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                onClick={handleOverwriteConfirm}
+                                className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] dark:bg-[var(--secondary)] dark:hover:bg-[var(--secondary-dark)] text-white transition-colors"
+                            >
+                                Перезаписать
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

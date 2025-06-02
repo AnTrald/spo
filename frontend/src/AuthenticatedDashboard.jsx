@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ReceiptItems from './components/ReceiptItems.jsx';
+import ReportsList from "./components/ReportsList.jsx";
 
 export default function AuthenticatedDashboard({ userData, onLogout }) {
     const [showScanner, setShowScanner] = useState(false);
@@ -10,6 +11,7 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
     const [isSmsRequested, setIsSmsRequested] = useState(false);
     const [scanResult, setScanResult] = useState(null);
     const [showReceiptItems, setShowReceiptItems] = useState(false);
+    const [showReportsList, setShowReportsList] = useState(false);
 
 
     const handleFileChange = (e) => {
@@ -161,11 +163,21 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
             <ReceiptItems
                 username={userData.username}
                 ticket={scanResult?.ticket}
+                ticketId = {scanResult?.id}
                 onBack={() => {
                     setShowReceiptItems(false);
                     setScanResult(null);
                     setFile(null);
                 }}
+            />
+        );
+    }
+
+    if (showReportsList) {
+        return (
+            <ReportsList
+                username={userData.username}
+                onBack={() => setShowReportsList(false)}
             />
         );
     }
@@ -194,9 +206,10 @@ export default function AuthenticatedDashboard({ userData, onLogout }) {
                                 }
                             </button>
                             <button
+                                onClick={() => setShowReportsList(true)}
                                 className="w-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] dark:bg-[var(--secondary)] dark:hover:bg-[var(--secondary-dark)] text-white py-3 px-4 rounded-lg transition duration-200 shadow-md"
                             >
-                                Посмотреть историю распределений
+                                Посмотреть прошлые отчеты
                             </button>
                             <button
                                 onClick={onLogout}
