@@ -42,7 +42,7 @@ export default function ReportPage({ profiles, username, ticketId, groupedProces
             if (!response.ok) {
                 throw new Error('Ошибка при проверке дубликата');
             }
-            return await response.json(); // Вернет true/false
+            return await response.json();
         } catch (error) {
             console.error('Ошибка проверки:', error);
             return false;
@@ -76,13 +76,12 @@ export default function ReportPage({ profiles, username, ticketId, groupedProces
             console.log(data)
             setReportData(data);
 
-            // Проверяем дубликат
             const isDuplicate = await checkDuplicateReport(ticketId);
 
             if (isDuplicate) {
-                setShowOverwriteModal(true); // Показываем модальное окно подтверждения
+                setShowOverwriteModal(true);
             } else {
-                await saveReport(data); // Сохраняем если нет дубликата
+                await saveReport(data);
             }
         } catch (error) {
             console.error('Ошибка:', error);
@@ -125,9 +124,8 @@ export default function ReportPage({ profiles, username, ticketId, groupedProces
 
 
     const handleExportCSV = () => {
-        let csvContent = "\uFEFF"; // BOM для UTF-8
+        let csvContent = "\uFEFF";
 
-        // Используем точку с запятой как разделитель
         csvContent += "Профиль;Товар;Количество;Сумма;Должен\n";
 
         profiles.forEach(profile => {
@@ -139,14 +137,12 @@ export default function ReportPage({ profiles, username, ticketId, groupedProces
 
                     if (item) {
                         const share = getItemShare(itemId);
-                        // Заменяем точки на запятые в дробных числах
                         csvContent += `"${profile.name}";"${item.name}";1;${(share/100).toFixed(2).replace('.', ',')};${(profile.currentSum/100).toFixed(2).replace('.', ',')}\n`;
                     }
                 });
             });
         });
 
-        // Создаем файл с правильным MIME-типом
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -161,20 +157,16 @@ export default function ReportPage({ profiles, username, ticketId, groupedProces
         const doc = new jsPDF();
         const defaultProfile = profiles.find(p => p.isDefault);
 
-        // Устанавливаем шрифт с кириллицей
         doc.setFont('ArialMT')
 
-        // Заголовок
         doc.setFontSize(18);
         doc.text("Финансовый отчет по чеку", 14, 20);
 
-        // Общая информация
         doc.setFontSize(12);
         doc.text(`Общая сумма: ${(totalSumAllItems/100).toFixed(2).replace('.', ',')} ₽`, 14, 30);
         doc.text(`Количество участников: ${profiles.length}`, 14, 36);
         doc.text(`Получатель платежей: ${defaultProfile.name}`, 14, 42);
 
-        // Подготовка данных таблицы
         const tableData = profiles.flatMap(profile =>
             Object.entries(profile.selectedItems).flatMap(([groupKey, itemIds]) =>
                 itemIds.map(itemId => {
@@ -195,7 +187,6 @@ export default function ReportPage({ profiles, username, ticketId, groupedProces
             )
         );
         console.log(doc.getFontList());
-        // Добавление таблицы
         autoTable(doc, {
             head: [['Профиль', 'Товар', 'Кол-во', 'Сумма', 'Итого к оплате']],
             body: tableData,

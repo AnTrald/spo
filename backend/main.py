@@ -102,7 +102,7 @@ def validate_fiscal_qr(qr_string: str) -> bool:
 @app.post("/api/register")
 async def register(user: UserRegister):
     if not validate_phone(user.phone):
-        raise HTTPException(status_code=400, detail="Invalid phone number format")
+        raise HTTPException(status_code=400, detail="Неверный формат номера телефона")
 
     conn = get_db()
     cur = conn.cursor()
@@ -111,7 +111,7 @@ async def register(user: UserRegister):
         cur.execute("SELECT * FROM users WHERE username = %s OR phone = %s",
                    (user.username, f'+7{user.phone}'))
         if cur.fetchone():
-            raise HTTPException(status_code=400, detail="User with this username or phone already exists")
+            raise HTTPException(status_code=400, detail="Пользователь с таким именем или номером телефона уже зарегистрирован")
 
         hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt())
 

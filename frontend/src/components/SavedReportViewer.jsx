@@ -45,17 +45,14 @@ export default function SavedReportViewer({ reportId, onBack }) {
         const doc = new jsPDF();
         doc.setFont('ArialMT');
 
-        // Заголовок
         doc.setFontSize(18);
         doc.text("Финансовый отчет по чеку", 14, 20);
 
-        // Общая информация
         doc.setFontSize(12);
         doc.text(`Общая сумма: ${(totalSum || 0).toFixed(2).replace('.', ',')} ₽`, 14, 30);
         doc.text(`Количество участников: ${participants_count || 0}`, 14, 36);
         doc.text(`Получатель платежей: ${reportData.recipient_username || ''}`, 14, 42);
 
-        // Подготовка данных таблицы
         const tableData = (reportData || []).map(item => [
             item.profile || '',
             item.product || '',
@@ -64,7 +61,6 @@ export default function SavedReportViewer({ reportId, onBack }) {
             `${(item.total || 0).toFixed(2).replace('.', ',')} ₽`
         ]);
 
-        // Добавление таблицы
         autoTable(doc, {
             head: [['Профиль', 'Товар', 'Кол-во', 'Сумма', 'Итого к оплате']],
             body: tableData,
@@ -93,7 +89,7 @@ export default function SavedReportViewer({ reportId, onBack }) {
     const handleExportCSV = () => {
         if (!reportData) return;
 
-        let csvContent = "\uFEFF"; // BOM для UTF-8
+        let csvContent = "\uFEFF";
         csvContent += "Профиль;Товар;Количество;Сумма;Должен\n";
 
         (reportData || []).forEach(item => {
@@ -118,7 +114,6 @@ export default function SavedReportViewer({ reportId, onBack }) {
         }
     };
 
-    // Группировка товаров по профилям
     const getProfilesData = () => {
         if (!reportData || !reportData) return [];
         const profilesData = {};

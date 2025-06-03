@@ -110,7 +110,6 @@ export default function ReceiptItems({ ticket, ticketId, username, onBack }) {
                 };
             });
 
-            // Пересчитываем суммы для всех профилей
             return updatedProfiles.map(profile => {
                 const itemIds = Object.values(profile.selectedItems).flat();
                 const newSum = itemIds.reduce((sum, itemId) => {
